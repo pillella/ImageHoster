@@ -10,11 +10,13 @@ import ImageHoster.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
@@ -28,7 +30,7 @@ public class ImageController {
 
     @Autowired
     private TagService tagService;
-    
+
     @Autowired
     private CommentService commentService;
 
@@ -51,7 +53,7 @@ public class ImageController {
     //Here a list of tags is added in the Model type object
     //this list is then sent to 'images/image.html' file and the tags are displayed
     @RequestMapping("/images/{id}/{title}")
-    public String showImage(@PathVariable("id") Integer id,@PathVariable("title") String title, Model model) {
+    public String showImage(@PathVariable("id") Integer id,@PathVariable("title") String title, Model model,@ModelAttribute("flashAttr") String flashAttr) {
         Image image = imageService.getImage(id);
         model.addAttribute("image", image);
         model.addAttribute("tags", image.getTags());
@@ -99,7 +101,7 @@ public class ImageController {
     //The method first needs to convert the list of all the tags to a string containing all the tags separated by a comma and then add this string in a Model type object
     //This string is then displayed by 'edit.html' file as previous tags of an image
     @RequestMapping(value = "/editImage")
-    public String editImage(@RequestParam("imageId") Integer imageId, Model model, HttpSession session) {
+    public String editImage(@RequestParam("imageId") Integer imageId, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
         Image image = imageService.getImage(imageId);
         User loggedInUser = (User)session.getAttribute("loggeduser");
 
@@ -110,7 +112,9 @@ public class ImageController {
         if(image.getUser().getId() != loggedInUser.getId()){
             String error = "Only the owner of the image can edit the image";
             model.addAttribute("editError", error);
-            return  "images/image";
+            redirectAttributes.addAttribute("editError", error);
+			redirectAttributes.addFlashAttribute("editError", error);
+            return "redirect:/images/" + image.getId() + "/" + image.getTitle();
         }else {
             return "images/edit";
         }
@@ -155,17 +159,17 @@ public class ImageController {
     //The method calls the deleteImage() method in the business logic passing the id of the image to be deleted
     //Looks for a controller method with request mapping of type '/images'
     @RequestMapping(value = "/deleteImage", method = RequestMethod.DELETE)
-    public String deleteImageSubmit(@RequestParam(name = "imageId") Integer imageId, Model model, HttpSession session) {
+    public String deleteImageSubmit(@RequestParam(name = "imageId") Integer imageId, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
         Image image = imageService.getImage(imageId);
         User loggedInUser = (User)session.getAttribute("loggeduser");
 
         if(image.getUser().getId() != loggedInUser.getId()){
             String error = "Only the owner of the image can delete the image";
-            String tags = convertTagsToString(image.getTags());
-            model.addAttribute("image", image);
-            model.addAttribute("tags", tags);
             model.addAttribute("deleteError", error);
-            return  "images/image";
+            redirectAttributes.addAttribute("deleteError", error);
+			model.addAttribute("deleteError", error);
+			redirectAttributes.addFlashAttribute("deleteError", error);
+			return "redirect:/images/" + image.getId() + "/" + image.getTitle();
         }else {
             imageService.deleteImage(imageId);
             return "redirect:/images";
@@ -202,16 +206,20 @@ public class ImageController {
     //The method receives the list of all tags
     //Converts the list of all tags to a single string containing all the tags separated by a comma
     //Returns the string
-    private String convertTagsToString(List<Tag> tags) {
-        StringBuilder tagString = new StringBuilder();
+	private String convertTagsToString(List<Tag> tags) {
+		if (tags.size() > 0) {
+			StringBuilder tagString = new StringBuilder();
 
-        for (int i = 0; i <= tags.size() - 2; i++) {
-            tagString.append(tags.get(i).getName()).append(",");
-        }
+	        for (int i = 0; i <= tags.size() - 2; i++) {
+	            tagString.append(tags.get(i).getName()).append(",");
+	        }
 
-        Tag lastTag = tags.get(tags.size() - 1);
-        tagString.append(lastTag.getName());
+	        Tag lastTag = tags.get(tags.size() - 1);
+	        tagString.append(lastTag.getName());
 
-        return tagString.toString();
-    }
+	        return tagString.toString();
+		} else {
+			return "";
+		}
+	}
 }
